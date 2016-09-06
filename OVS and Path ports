@@ -1,1 +1,68 @@
 
+                                        Connection OVS Bridge with Path Ports
+    spurred to action be a brief mention at the botton of a blog post.I began to digging into the use of path ports to connect multiple Open Vswitch
+    bridges.In the post , I  will show you how to connect two seperate OVS bridge using a path port, and then we weill explore some possible use cases for this funcationality.
+    
+    you have seen me use the ovs-vsctl set interface <interface name> type= .../syntax serval times,P provides some insight on what it's doing in this post.
+    Basiclly,what we are doing with this command manipulating the OVS configuration database.This is how we configure internal interfaces that can 
+    be plumbed with an IP address.
+    
+    i don't seen any references to path ports before running into this blog post.
+So i did a little digging . In the manpage , it describes path ports as " a pair of virtual virtual devices that act as a path cable"
+A path port only has a single option. and that single opyion is the name of path port at the opposite end.
+
+Graphically, you can think of path ports like this:
+
+port "path-ovs-1"     port "path-ovs-2"
+
+peer "path-ovs-2"     peer "path-ovs-1"
+
+OVS bridge             OVS bridge
+
+To create a path port ,it's quite easy. this group of commands will create a path port
+1 ovs-vsctl add-port <bridge-name> <port-name>
+2 ovs-vsctl set interface <port-name> type=path
+3 ovs-vsctl set interface <port-name> option:peer=<peer name>
+
+You would repeat these commands for each bridge you want connected to another bridge.To connect two bridges, you would repeat them twice
+
+Once you've run through the commands ,running ovs-vsctl show will reveal a configuration that would look something like this (obviously your bridge names, port names ,and interface names will vary):
+
+Bridge "ovsbr2"
+        Port "ovsbr2"
+            Interface "ovsbr2"
+                type: internal
+        Port "patch2-0"
+            Interface "patch2-0"
+                type: patch
+                options: {peer="patch0-2"}
+    Bridge "ovsbr0"
+        Port "bond0"
+            Interface "eth0"
+            Interface "eth2"
+        Port "patch0-2"
+            Interface "patch0-2"
+                type: patch
+                options: {peer="patch2-0"}
+        Port "ovsbr0"
+            Interface "ovsbr0"
+                type: internal
+
+LikeWise , the bridge ovsbr0 has a port and interface named path0-2,whose type is path and whose peer is set to "path2-0"
+Note that ,just as the manpage started, the two path ports have reserved name and peer values- this creates the connection between the two bridges. This 
+Bridge has a bond with two interfaces that take it to the outside world.
+
+With the configuration,I can start up a guest domain attached to ovsbr2 --which has no pythical uplinks abd gain connectivity to the outside
+world via the path ports that connect it to ovsbr0 and its uplinks
+
+OK, this is interesting ,But what sort of uses does this have? well, i'm still exploring that myself, abd i'd love to hear from readers
+as to they might see this funcationally utilized. Here are two examples of which i Know:
+
+1) The author used a seperate OVS bridge for openFlow testing , So , One bridge had no uplink was connectd to an Openflow controller and
+had a port to an externally-connected bridge, thus, he cloud perform Openflow testing with some guest
+
+2) ....
+
+
+
+
